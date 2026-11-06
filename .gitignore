@@ -1,0 +1,29 @@
+# Arduino temporary/build files
+build/
+*.hex
+*.elf
+*.bin
+*.o
+*.d
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.env
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Sensitive credentials
+secrets.h
+credentials.h
+.env

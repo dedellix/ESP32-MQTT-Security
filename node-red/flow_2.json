@@ -1,0 +1,301 @@
+[
+ {
+  "id": "tab_flow",
+  "type": "tab",
+  "label": "Humidity alarm: board 1 -> board 2",
+  "disabled": false,
+  "info": ""
+ },
+ {
+  "id": "br1",
+  "type": "mqtt-broker",
+  "name": "local broker",
+  "broker": "127.0.0.1",
+  "port": "1883",
+  "clientid": "nodered",
+  "autoConnect": true,
+  "usetls": false,
+  "protocolVersion": "4",
+  "keepalive": "60",
+  "cleansession": true,
+  "autoUnsubscribe": true,
+  "birthTopic": "",
+  "birthQos": "0",
+  "birthPayload": "",
+  "birthMsg": {},
+  "closeTopic": "",
+  "closeQos": "0",
+  "closePayload": "",
+  "closeMsg": {},
+  "willTopic": "",
+  "willQos": "0",
+  "willPayload": "",
+  "willMsg": {},
+  "userProps": "",
+  "sessionExpiry": ""
+ },
+ {
+  "id": "ui_tab1",
+  "type": "ui_tab",
+  "name": "ESP32",
+  "icon": "dashboard",
+  "disabled": false,
+  "hidden": false
+ },
+ {
+  "id": "ui_grp1",
+  "type": "ui_group",
+  "name": "Humidity alarm",
+  "tab": "ui_tab1",
+  "order": 1,
+  "disp": true,
+  "width": "8",
+  "collapse": false
+ },
+ {
+  "id": "in_hum",
+  "type": "mqtt in",
+  "z": "flow1",
+  "name": "board 1 humidity",
+  "topic": "esp32/esp32_1/humidity",
+  "qos": "0",
+  "datatype": "auto-detect",
+  "broker": "br1",
+  "nl": false,
+  "rap": true,
+  "rh": 0,
+  "inputs": 0,
+  "x": 150,
+  "y": 120,
+  "wires": [
+   [
+    "fn_alarm",
+    "chart_hum"
+   ]
+  ]
+ },
+ {
+  "id": "sl_th",
+  "type": "ui_slider",
+  "z": "flow1",
+  "name": "",
+  "label": "Humidity threshold %",
+  "tooltip": "",
+  "group": "ui_grp1",
+  "order": 1,
+  "width": 0,
+  "height": 0,
+  "passthru": true,
+  "outs": "end",
+  "topic": "threshold",
+  "topicType": "str",
+  "min": 30,
+  "max": 90,
+  "step": 1,
+  "className": "",
+  "x": 160,
+  "y": 220,
+  "wires": [
+   [
+    "fn_th"
+   ]
+  ]
+ },
+ {
+  "id": "fn_th",
+  "type": "function",
+  "z": "flow1",
+  "name": "store threshold",
+  "func": "flow.set('hum_th', Number(msg.payload));\nreturn null;",
+  "outputs": 1,
+  "timeout": 0,
+  "noerr": 0,
+  "initialize": "flow.set('hum_th', 60);",
+  "finalize": "",
+  "libs": [],
+  "x": 370,
+  "y": 220,
+  "wires": [
+   []
+  ]
+ },
+ {
+  "id": "fn_alarm",
+  "type": "function",
+  "z": "flow1",
+  "name": "humidity alarm",
+  "func": "const th  = flow.get('hum_th') ?? 60;   // threshold from the slider\nconst hys = 3;                           // hysteresis (avoids flicker)\nconst hum = parseFloat(msg.payload);\nif (isNaN(hum)) return null;\n\nconst prev = flow.get('alarm');\nlet on = prev === true;\nif (!on && hum > th)            on = true;\nelse if (on && hum < th - hys)  on = false;\n\nif (prev === on) return null;            // publish only when the state changes\nflow.set('alarm', on);\n\nreturn [\n  { payload: on ? '1' : '0' },           // -> board 2 (retained)\n  { payload: on ? `ALARM: humidity ${hum}% > ${th}%` : `Normal (${hum}%)` }\n];",
+  "outputs": 2,
+  "timeout": 0,
+  "noerr": 0,
+  "initialize": "",
+  "finalize": "",
+  "libs": [],
+  "x": 380,
+  "y": 120,
+  "wires": [
+   [
+    "out_alarm",
+    "dbg_cmd"
+   ],
+   [
+    "txt_state"
+   ]
+  ]
+ },
+ {
+  "id": "out_alarm",
+  "type": "mqtt out",
+  "z": "flow1",
+  "name": "alarm -> board 2",
+  "topic": "esp32/esp32_2/alarm",
+  "qos": "1",
+  "retain": "true",
+  "respTopic": "",
+  "contentType": "",
+  "userProps": "",
+  "correl": "",
+  "expiry": "",
+  "broker": "br1",
+  "x": 630,
+  "y": 100,
+  "wires": []
+ },
+ {
+  "id": "dbg_cmd",
+  "type": "debug",
+  "z": "flow1",
+  "name": "command sent",
+  "active": true,
+  "tosidebar": true,
+  "console": false,
+  "tostatus": false,
+  "complete": "payload",
+  "targetType": "msg",
+  "statusVal": "",
+  "statusType": "auto",
+  "x": 630,
+  "y": 150,
+  "wires": []
+ },
+ {
+  "id": "txt_state",
+  "type": "ui_text",
+  "z": "flow1",
+  "group": "ui_grp1",
+  "order": 2,
+  "width": 0,
+  "height": 0,
+  "name": "",
+  "label": "State",
+  "format": "{{msg.payload}}",
+  "layout": "row-spread",
+  "className": "",
+  "x": 630,
+  "y": 200,
+  "wires": []
+ },
+ {
+  "id": "chart_hum",
+  "type": "ui_chart",
+  "z": "flow1",
+  "name": "board 1 humidity",
+  "group": "ui_grp1",
+  "order": 3,
+  "width": 0,
+  "height": 0,
+  "label": "Board 1 humidity (%)",
+  "chartType": "line",
+  "legend": "false",
+  "xformat": "HH:mm:ss",
+  "interpolate": "linear",
+  "nodata": "waiting for data",
+  "dot": false,
+  "ymin": "0",
+  "ymax": "100",
+  "removeOlder": 1,
+  "removeOlderPoints": "",
+  "removeOlderUnit": "3600",
+  "cutout": 0,
+  "useOneColor": false,
+  "useUTC": false,
+  "colors": [
+   "#13a89e",
+   "#f4a259",
+   "#e5484d",
+   "#5b6770",
+   "#0b2545",
+   "#8fd3cc",
+   "#999999",
+   "#1f77b4",
+   "#aec7e8"
+  ],
+  "outputs": 1,
+  "useDifferentColor": false,
+  "className": "",
+  "x": 380,
+  "y": 60,
+  "wires": [
+   []
+  ]
+ },
+ {
+  "id": "in_ack",
+  "type": "mqtt in",
+  "z": "flow1",
+  "name": "board 2 ack",
+  "topic": "esp32/esp32_2/ack",
+  "qos": "0",
+  "datatype": "auto-detect",
+  "broker": "br1",
+  "nl": false,
+  "rap": true,
+  "rh": 0,
+  "inputs": 0,
+  "x": 140,
+  "y": 320,
+  "wires": [
+   [
+    "fn_ack"
+   ]
+  ]
+ },
+ {
+  "id": "fn_ack",
+  "type": "function",
+  "z": "flow1",
+  "name": "ack text",
+  "func": "msg.payload = 'Board 2: alarm muted by button';\nreturn msg;",
+  "outputs": 1,
+  "timeout": 0,
+  "noerr": 0,
+  "initialize": "",
+  "finalize": "",
+  "libs": [],
+  "x": 340,
+  "y": 320,
+  "wires": [
+   [
+    "txt_state",
+    "dbg_ack"
+   ]
+  ]
+ },
+ {
+  "id": "dbg_ack",
+  "type": "debug",
+  "z": "flow1",
+  "name": "ack",
+  "active": true,
+  "tosidebar": true,
+  "console": false,
+  "tostatus": false,
+  "complete": "payload",
+  "targetType": "msg",
+  "statusVal": "",
+  "statusType": "auto",
+  "x": 530,
+  "y": 340,
+  "wires": []
+ }
+]
